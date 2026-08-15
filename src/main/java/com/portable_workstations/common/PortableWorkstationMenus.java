@@ -1,0 +1,316 @@
+package com.portable_workstations.common;
+
+import com.portable_workstations.network.PortableWorkstationsNetwork;
+import net.minecraft.Util;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.stats.Stats;
+import net.minecraft.world.Container;
+import net.minecraft.world.SimpleMenuProvider;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AnvilMenu;
+import net.minecraft.world.inventory.BlastFurnaceMenu;
+import net.minecraft.world.inventory.BrewingStandMenu;
+import net.minecraft.world.inventory.CartographyTableMenu;
+import net.minecraft.world.inventory.ChestMenu;
+import net.minecraft.world.inventory.ContainerLevelAccess;
+import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.EnchantmentMenu;
+import net.minecraft.world.inventory.FurnaceMenu;
+import net.minecraft.world.inventory.GrindstoneMenu;
+import net.minecraft.world.inventory.LoomMenu;
+import net.minecraft.world.inventory.SmithingMenu;
+import net.minecraft.world.inventory.StonecutterMenu;
+import net.minecraft.world.item.EnchantedBookItem;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import net.minecraft.world.level.block.AnvilBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.common.Tags;
+import net.minecraftforge.event.ForgeEventFactory;
+
+import java.util.List;
+
+public final class PortableWorkstationMenus {
+    private PortableWorkstationMenus() {
+    }
+
+    public static final class PortableFurnaceMenu extends FurnaceMenu {
+        public PortableFurnaceMenu(int id, Inventory inventory, PortableFurnaceAccess furnace) {
+            super(id, inventory, furnace.furnaceEntity(), furnace.portableDataAccess());
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableBlastFurnaceMenu extends BlastFurnaceMenu {
+        public PortableBlastFurnaceMenu(int id, Inventory inventory, PortableFurnaceAccess furnace) {
+            super(id, inventory, furnace.furnaceEntity(), furnace.portableDataAccess());
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableBrewingStandMenu extends BrewingStandMenu {
+        public PortableBrewingStandMenu(int id, Inventory inventory, PortableBrewingStandBlockEntity brewingStand) {
+            super(id, inventory, brewingStand, brewingStand.portableDataAccess());
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableCraftingMenu extends CraftingMenu {
+        public PortableCraftingMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableAnvilMenu extends AnvilMenu {
+        private final PortableWorkstationsData data;
+
+        public PortableAnvilMenu(int id, Inventory inventory, PortableWorkstationsData data) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+            this.data = data;
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+
+        @Override
+        protected void onTake(Player player, ItemStack result) {
+            if (!player.getAbilities().instabuild) {
+                player.giveExperienceLevels(-this.getCost());
+            }
+
+            float breakChance = ForgeHooks.onAnvilRepair(player, result, this.inputSlots.getItem(0), this.inputSlots.getItem(1));
+            this.inputSlots.setItem(0, ItemStack.EMPTY);
+            if (this.repairItemCountCost > 0) {
+                ItemStack additional = this.inputSlots.getItem(1);
+                if (!additional.isEmpty() && additional.getCount() > this.repairItemCountCost) {
+                    additional.shrink(this.repairItemCountCost);
+                    this.inputSlots.setItem(1, additional);
+                } else {
+                    this.inputSlots.setItem(1, ItemStack.EMPTY);
+                }
+            } else {
+                this.inputSlots.setItem(1, ItemStack.EMPTY);
+            }
+            this.setMaximumCost(0);
+
+            if (!player.getAbilities().instabuild && player.getRandom().nextFloat() < breakChance) {
+                boolean remains = data.damageAnvil();
+                PortableWorkstationsNetwork.sync((ServerPlayer) player);
+                if (!remains) {
+                    player.closeContainer();
+                }
+            }
+        }
+    }
+
+    public static final class PortableEnchantmentMenu extends EnchantmentMenu {
+        private final PortableWorkstationsData data;
+        private final net.minecraft.util.RandomSource random = net.minecraft.util.RandomSource.create();
+        private final Player player;
+
+        public PortableEnchantmentMenu(int id, Inventory inventory, PortableWorkstationsData data) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+            this.data = data;
+            this.player = inventory.player;
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+
+        @Override
+        public void slotsChanged(Container container) {
+            if (this.player.level().isClientSide) {
+                return;
+            }
+            ItemStack item = this.getSlot(0).getItem();
+            if (!item.isEmpty() && item.isEnchantable()) {
+                int bookshelfPower = data.bookshelves();
+                random.setSeed(this.getEnchantmentSeed());
+                for (int index = 0; index < 3; index++) {
+                    this.costs[index] = EnchantmentHelper.getEnchantmentCost(random, index, bookshelfPower, item);
+                    this.enchantClue[index] = -1;
+                    this.levelClue[index] = -1;
+                    if (this.costs[index] < index + 1) {
+                        this.costs[index] = 0;
+                    }
+                    this.costs[index] = ForgeEventFactory.onEnchantmentLevelSet(this.player.level(), this.player.blockPosition(), index, bookshelfPower, item, this.costs[index]);
+                }
+
+                for (int index = 0; index < 3; index++) {
+                    if (this.costs[index] > 0) {
+                        List<EnchantmentInstance> enchantments = getEnchantmentList(item, index, this.costs[index]);
+                        if (!enchantments.isEmpty()) {
+                            EnchantmentInstance enchantment = enchantments.get(random.nextInt(enchantments.size()));
+                            this.enchantClue[index] = BuiltInRegistries.ENCHANTMENT.getId(enchantment.enchantment);
+                            this.levelClue[index] = enchantment.level;
+                        }
+                    }
+                }
+            } else {
+                for (int index = 0; index < 3; index++) {
+                    this.costs[index] = 0;
+                    this.enchantClue[index] = -1;
+                    this.levelClue[index] = -1;
+                }
+            }
+            this.broadcastChanges();
+        }
+
+        @Override
+        public boolean clickMenuButton(Player player, int button) {
+            if (button < 0 || button >= this.costs.length) {
+                Util.logAndPauseIfInIde(player.getName() + " pressed invalid button id: " + button);
+                return false;
+            }
+
+            ItemStack item = this.getSlot(0).getItem();
+            ItemStack lapis = this.getSlot(1).getItem();
+            int levelCost = button + 1;
+            if ((lapis.isEmpty() || lapis.getCount() < levelCost) && !player.getAbilities().instabuild) {
+                return false;
+            }
+            if (this.costs[button] <= 0 || item.isEmpty() || (player.experienceLevel < levelCost || player.experienceLevel < this.costs[button]) && !player.getAbilities().instabuild) {
+                return false;
+            }
+
+            List<EnchantmentInstance> enchantments = getEnchantmentList(item, button, this.costs[button]);
+            if (enchantments.isEmpty()) {
+                return false;
+            }
+
+            player.onEnchantmentPerformed(item, levelCost);
+            boolean isBook = item.is(Items.BOOK);
+            ItemStack enchanted = item;
+            if (isBook) {
+                enchanted = new ItemStack(Items.ENCHANTED_BOOK);
+                CompoundTag tag = item.getTag();
+                if (tag != null) {
+                    enchanted.setTag(tag.copy());
+                }
+                this.getSlot(0).set(enchanted);
+            }
+            for (EnchantmentInstance enchantment : enchantments) {
+                if (isBook) {
+                    EnchantedBookItem.addEnchantment(enchanted, enchantment);
+                } else {
+                    enchanted.enchant(enchantment.enchantment, enchantment.level);
+                }
+            }
+
+            if (!player.getAbilities().instabuild) {
+                lapis.shrink(levelCost);
+                this.getSlot(1).set(lapis.isEmpty() ? ItemStack.EMPTY : lapis);
+            }
+            player.awardStat(Stats.ENCHANT_ITEM);
+            if (player instanceof ServerPlayer serverPlayer) {
+                net.minecraft.advancements.CriteriaTriggers.ENCHANTED_ITEM.trigger(serverPlayer, enchanted, levelCost);
+            }
+            this.setData(3, player.getEnchantmentSeed());
+            this.getSlot(0).setChanged();
+            slotsChanged(null);
+            player.level().playSound(null, player.blockPosition(), SoundEvents.ENCHANTMENT_TABLE_USE, SoundSource.BLOCKS, 1.0F, player.getRandom().nextFloat() * 0.1F + 0.9F);
+            return true;
+        }
+
+        @Override
+        public int getGoldCount() {
+            ItemStack lapis = this.getSlot(1).getItem();
+            return lapis.isEmpty() ? 0 : lapis.getCount();
+        }
+
+        private List<EnchantmentInstance> getEnchantmentList(ItemStack item, int slot, int cost) {
+            random.setSeed((long) (this.getEnchantmentSeed() + slot));
+            List<EnchantmentInstance> enchantments = EnchantmentHelper.selectEnchantment(random, item, cost, false);
+            if (item.is(Items.BOOK) && enchantments.size() > 1) {
+                enchantments.remove(random.nextInt(enchantments.size()));
+            }
+            return enchantments;
+        }
+    }
+
+    public static final class PortableStonecutterMenu extends StonecutterMenu {
+        public PortableStonecutterMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableGrindstoneMenu extends GrindstoneMenu {
+        public PortableGrindstoneMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableLoomMenu extends LoomMenu {
+        public PortableLoomMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableSmithingMenu extends SmithingMenu {
+        public PortableSmithingMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
+    public static final class PortableCartographyMenu extends CartographyTableMenu {
+        public PortableCartographyMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+}
