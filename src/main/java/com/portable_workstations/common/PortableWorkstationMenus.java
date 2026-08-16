@@ -25,6 +25,7 @@ import net.minecraft.world.inventory.FurnaceMenu;
 import net.minecraft.world.inventory.GrindstoneMenu;
 import net.minecraft.world.inventory.LoomMenu;
 import net.minecraft.world.inventory.SmithingMenu;
+import net.minecraft.world.inventory.SmokerMenu;
 import net.minecraft.world.inventory.StonecutterMenu;
 import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.ItemStack;
@@ -85,9 +86,9 @@ public final class PortableWorkstationMenus {
         }
     }
 
-    public static final class PortableFletchingMenu extends CraftingMenu {
-        public PortableFletchingMenu(int id, Inventory inventory) {
-            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+    public static final class PortableSmokerMenu extends SmokerMenu {
+        public PortableSmokerMenu(int id, Inventory inventory, PortableFurnaceAccess furnace) {
+            super(id, inventory, furnace.furnaceEntity(), furnace.portableDataAccess());
         }
 
         @Override

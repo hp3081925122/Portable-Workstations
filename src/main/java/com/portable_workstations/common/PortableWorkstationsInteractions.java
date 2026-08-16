@@ -66,12 +66,15 @@ public final class PortableWorkstationsInteractions {
     private static boolean isWorkstationOrBookshelf(ItemStack stack) {
         WorkstationType type = WorkstationType.fromStack(stack);
         boolean isBookshelf = stack.is(Blocks.BOOKSHELF.asItem());
-        return type != null || isBookshelf;
+        return type != null && PortableWorkstationsConfig.isAllowed(stack) || isBookshelf;
     }
 
     private static boolean unlock(net.minecraft.world.entity.player.Player player, ItemStack stack, ServerLevel level) {
         WorkstationType type = WorkstationType.fromStack(stack);
         boolean isBookshelf = stack.is(Blocks.BOOKSHELF.asItem());
+        if (type != null && !PortableWorkstationsConfig.isAllowed(stack)) {
+            return false;
+        }
         PortableWorkstationsData data = PortableWorkstationsCapability.data((net.minecraft.server.level.ServerPlayer) player);
         if (isBookshelf) {
             if (data.addBookshelf()) {
