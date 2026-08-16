@@ -1,6 +1,7 @@
 package com.portable_workstations;
 
 import com.portable_workstations.common.PortableWorkstationsCapability;
+import com.portable_workstations.common.PortableWorkstationsConfig;
 import com.portable_workstations.common.PortableWorkstationsEvents;
 import com.portable_workstations.common.PortableWorkstationsInteractions;
 import com.portable_workstations.network.PortableWorkstationsNetwork;
@@ -12,6 +13,7 @@ public class Portable_workstations implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        PortableWorkstationsConfig.load();
         PortableWorkstationsCapability.register();
         PortableWorkstationsNetwork.register();
         PortableWorkstationsInteractions.register();
