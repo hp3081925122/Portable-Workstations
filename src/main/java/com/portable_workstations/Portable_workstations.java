@@ -1,6 +1,7 @@
 package com.portable_workstations;
 
 import com.mojang.logging.LogUtils;
+import com.portable_workstations.common.PortableWorkstationsConfig;
 import com.portable_workstations.network.PortableWorkstationsNetwork;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.MinecraftForge;
@@ -13,6 +14,7 @@ public class Portable_workstations {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public Portable_workstations() {
+        PortableWorkstationsConfig.load();
         PortableWorkstationsNetwork.register();
         MinecraftForge.EVENT_BUS.register(this);
     }

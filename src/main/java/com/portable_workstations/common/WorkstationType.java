@@ -11,6 +11,7 @@ public enum WorkstationType {
     ENCHANTING_TABLE("enchanting_table", Blocks.ENCHANTING_TABLE),
     STONECUTTER("stonecutter", Blocks.STONECUTTER),
     BLAST_FURNACE("blast_furnace", Blocks.BLAST_FURNACE),
+    SMOKER("smoker", Blocks.SMOKER),
     BREWING_STAND("brewing_stand", Blocks.BREWING_STAND),
     ENDER_CHEST("ender_chest", Blocks.ENDER_CHEST),
     LOOM("loom", Blocks.LOOM),

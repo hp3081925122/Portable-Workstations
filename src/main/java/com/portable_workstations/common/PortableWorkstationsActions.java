@@ -43,7 +43,7 @@ public final class PortableWorkstationsActions {
             return;
         }
 
-        if (type == WorkstationType.FURNACE || type == WorkstationType.BLAST_FURNACE) {
+        if (type == WorkstationType.FURNACE || type == WorkstationType.BLAST_FURNACE || type == WorkstationType.SMOKER) {
             entry.furnace().furnaceEntity().setLevel(player.serverLevel());
         } else if (type == WorkstationType.BREWING_STAND) {
             entry.brewingStand().setLevel(player.serverLevel());
@@ -55,6 +55,7 @@ public final class PortableWorkstationsActions {
             case ENCHANTING_TABLE -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableEnchantmentMenu(id, inventory, data), Component.translatable("container.enchant")));
             case STONECUTTER -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableStonecutterMenu(id, inventory), Component.translatable("container.stonecutter")));
             case BLAST_FURNACE -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableBlastFurnaceMenu(id, inventory, entry.furnace()), Component.translatable("container.blast_furnace")));
+            case SMOKER -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableSmokerMenu(id, inventory, entry.furnace()), Component.translatable("container.smoker")));
             case BREWING_STAND -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableBrewingStandMenu(id, inventory, entry.brewingStand()), Component.translatable("container.brewing")));
             case ENDER_CHEST -> openEnderChest(player);
             case LOOM -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableLoomMenu(id, inventory), Component.translatable("container.loom")));

@@ -59,10 +59,8 @@ public final class PortableWorkstationsData {
 
         ItemStack displayStack = type == WorkstationType.ANVIL ? source.copyWithCount(1) : type.defaultStack();
         WorkstationEntry entry = new WorkstationEntry(type, displayStack);
-        if (type == WorkstationType.FURNACE) {
-            entry.furnace = createFurnace(source, level, false);
-        } else if (type == WorkstationType.BLAST_FURNACE) {
-            entry.furnace = createFurnace(source, level, true);
+        if (type == WorkstationType.FURNACE || type == WorkstationType.BLAST_FURNACE || type == WorkstationType.SMOKER) {
+            entry.furnace = createFurnace(source, level, type);
         } else if (type == WorkstationType.BREWING_STAND) {
             entry.brewingStand = createBrewingStand(source, level);
         }
@@ -79,7 +77,7 @@ public final class PortableWorkstationsData {
         ItemStack result = entry.displayStack.copyWithCount(1);
         if (entry.furnace != null) {
             entry.furnace.furnaceEntity().setLevel(level);
-            BlockEntityType<?> blockEntityType = type == WorkstationType.BLAST_FURNACE ? BlockEntityType.BLAST_FURNACE : BlockEntityType.FURNACE;
+            BlockEntityType<?> blockEntityType = type == WorkstationType.BLAST_FURNACE ? BlockEntityType.BLAST_FURNACE : type == WorkstationType.SMOKER ? BlockEntityType.SMOKER : BlockEntityType.FURNACE;
             BlockItem.setBlockEntityData(result, blockEntityType, entry.furnace.furnaceEntity().saveWithoutMetadata());
         }
         if (entry.brewingStand != null) {
@@ -112,7 +110,7 @@ public final class PortableWorkstationsData {
             }
             entry.furnace.furnaceEntity().setLevel(level);
             if (!entry.furnace.furnaceEntity().getItem(0).isEmpty() || !entry.furnace.furnaceEntity().getItem(1).isEmpty() || entry.furnace.getPortableData(0) > 0 || entry.furnace.getPortableData(2) > 0) {
-                PortableFurnaceTicker.tick(level, entry.furnace, entry.type == WorkstationType.BLAST_FURNACE ? net.minecraft.world.item.crafting.RecipeType.BLASTING : net.minecraft.world.item.crafting.RecipeType.SMELTING);
+                PortableFurnaceTicker.tick(level, entry.furnace, entry.type == WorkstationType.BLAST_FURNACE ? net.minecraft.world.item.crafting.RecipeType.BLASTING : entry.type == WorkstationType.SMOKER ? net.minecraft.world.item.crafting.RecipeType.SMOKING : net.minecraft.world.item.crafting.RecipeType.SMELTING);
             }
         }
     }
@@ -163,10 +161,8 @@ public final class PortableWorkstationsData {
                 stack = type.defaultStack();
             }
             WorkstationEntry entry = new WorkstationEntry(type, stack.copyWithCount(1));
-            if (type == WorkstationType.FURNACE && serializedEntry.contains(FURNACE_TAG, 10)) {
-                entry.furnace = createFurnaceFromTag(serializedEntry.getCompound(FURNACE_TAG), false);
-            } else if (type == WorkstationType.BLAST_FURNACE && serializedEntry.contains(FURNACE_TAG, 10)) {
-                entry.furnace = createFurnaceFromTag(serializedEntry.getCompound(FURNACE_TAG), true);
+            if ((type == WorkstationType.FURNACE || type == WorkstationType.BLAST_FURNACE || type == WorkstationType.SMOKER) && serializedEntry.contains(FURNACE_TAG, 10)) {
+                entry.furnace = createFurnaceFromTag(serializedEntry.getCompound(FURNACE_TAG), type);
             } else if (type == WorkstationType.BREWING_STAND && serializedEntry.contains(BREWING_STAND_TAG, 10)) {
                 entry.brewingStand = createBrewingStandFromTag(serializedEntry.getCompound(BREWING_STAND_TAG));
             }
@@ -178,9 +174,11 @@ public final class PortableWorkstationsData {
         deserializeNBT(source.serializeNBT());
     }
 
-    private static PortableFurnaceAccess createFurnace(ItemStack source, ServerLevel level, boolean blast) {
-        PortableFurnaceAccess furnace = blast
+    private static PortableFurnaceAccess createFurnace(ItemStack source, ServerLevel level, WorkstationType type) {
+        PortableFurnaceAccess furnace = type == WorkstationType.BLAST_FURNACE
                 ? new PortableBlastFurnaceBlockEntity(BlockPos.ZERO, Blocks.BLAST_FURNACE.defaultBlockState())
+                : type == WorkstationType.SMOKER
+                ? new PortableSmokerBlockEntity(BlockPos.ZERO, Blocks.SMOKER.defaultBlockState())
                 : new PortableFurnaceBlockEntity(BlockPos.ZERO, Blocks.FURNACE.defaultBlockState());
         furnace.furnaceEntity().setLevel(level);
         CompoundTag blockEntityTag = BlockItem.getBlockEntityData(source);
@@ -190,9 +188,11 @@ public final class PortableWorkstationsData {
         return furnace;
     }
 
-    private static PortableFurnaceAccess createFurnaceFromTag(CompoundTag tag, boolean blast) {
-        PortableFurnaceAccess furnace = blast
+    private static PortableFurnaceAccess createFurnaceFromTag(CompoundTag tag, WorkstationType type) {
+        PortableFurnaceAccess furnace = type == WorkstationType.BLAST_FURNACE
                 ? new PortableBlastFurnaceBlockEntity(BlockPos.ZERO, Blocks.BLAST_FURNACE.defaultBlockState())
+                : type == WorkstationType.SMOKER
+                ? new PortableSmokerBlockEntity(BlockPos.ZERO, Blocks.SMOKER.defaultBlockState())
                 : new PortableFurnaceBlockEntity(BlockPos.ZERO, Blocks.FURNACE.defaultBlockState());
         furnace.furnaceEntity().load(tag);
         return furnace;
