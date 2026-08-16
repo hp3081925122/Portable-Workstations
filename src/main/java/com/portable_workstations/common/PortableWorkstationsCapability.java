@@ -1,23 +1,33 @@
 package com.portable_workstations.common;
 
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.Dynamic;
 import com.portable_workstations.Portable_workstations;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityManager;
-import net.minecraftforge.common.capabilities.CapabilityToken;
-import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
+import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.server.level.ServerPlayer;
 
-@Mod.EventBusSubscriber(modid = Portable_workstations.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public final class PortableWorkstationsCapability {
-    public static final Capability<PortableWorkstationsData> DATA = CapabilityManager.get(new CapabilityToken<>() {
-    });
+    private static final Codec<PortableWorkstationsData> CODEC = Codec.PASSTHROUGH.xmap(dynamic -> {
+        PortableWorkstationsData data = new PortableWorkstationsData();
+        data.deserializeNBT((CompoundTag) dynamic.convert(NbtOps.INSTANCE).getValue());
+        return data;
+    }, data -> new Dynamic<>(NbtOps.INSTANCE, data.serializeNBT()));
+    public static final AttachmentType<PortableWorkstationsData> DATA = AttachmentRegistry.<PortableWorkstationsData>builder()
+            .persistent(CODEC)
+            .copyOnDeath()
+            .initializer(PortableWorkstationsData::new)
+            .buildAndRegister(Portable_workstations.location("workstations"));
 
     private PortableWorkstationsCapability() {
     }
 
-    @SubscribeEvent
-    public static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.register(PortableWorkstationsData.class);
+    public static void register() {
+    }
+
+    public static PortableWorkstationsData data(ServerPlayer player) {
+        return player.getAttachedOrCreate(DATA);
     }
 }

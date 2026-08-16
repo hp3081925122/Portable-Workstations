@@ -11,7 +11,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.client.gui.overlay.ForgeGui;
 import org.joml.Matrix4f;
 
 import java.util.List;
@@ -46,7 +45,7 @@ public final class PortableWorkstationsWheelOverlay {
     private PortableWorkstationsWheelOverlay() {
     }
 
-    public static void render(ForgeGui gui, GuiGraphics graphics, float partialTick, int screenWidth, int screenHeight) {
+    public static void render(GuiGraphics graphics, float partialTick, int screenWidth, int screenHeight) {
         if (!PortableWorkstationsWheelState.isOpen()) {
             return;
         }

@@ -15,17 +15,16 @@ public final class PortableWorkstationsActions {
     }
 
     public static void handleAction(ServerPlayer player, WorkstationType type, boolean retrieve) {
-        player.getCapability(PortableWorkstationsCapability.DATA).ifPresent(data -> {
-            if (!data.isUnlocked(type)) {
-                PortableWorkstationsNetwork.sync(player);
-                return;
-            }
-            if (retrieve) {
-                retrieve(player, data, type);
-            } else {
-                open(player, data, type);
-            }
-        });
+        PortableWorkstationsData data = PortableWorkstationsCapability.data(player);
+        if (!data.isUnlocked(type)) {
+            PortableWorkstationsNetwork.sync(player);
+            return;
+        }
+        if (retrieve) {
+            retrieve(player, data, type);
+        } else {
+            open(player, data, type);
+        }
     }
 
     private static void retrieve(ServerPlayer player, PortableWorkstationsData data, WorkstationType type) {
@@ -60,6 +59,7 @@ public final class PortableWorkstationsActions {
             case LOOM -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableLoomMenu(id, inventory), Component.translatable("container.loom")));
             case GRINDSTONE -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableGrindstoneMenu(id, inventory), Component.translatable("container.grindstone_title")));
             case SMITHING_TABLE -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableSmithingMenu(id, inventory), Component.translatable("container.upgrade")));
+            case FLETCHING_TABLE -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableFletchingMenu(id, inventory), Component.translatable("container.portable_workstations.fletching_table")));
             case CARTOGRAPHY_TABLE -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableCartographyMenu(id, inventory), Component.translatable("container.cartography_table")));
         }
     }

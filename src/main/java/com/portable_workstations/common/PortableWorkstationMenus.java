@@ -34,9 +34,6 @@ import net.minecraft.world.item.enchantment.EnchantmentInstance;
 import net.minecraft.world.level.block.AnvilBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.ForgeHooks;
-import net.minecraftforge.common.Tags;
-import net.minecraftforge.event.ForgeEventFactory;
 
 import java.util.List;
 
@@ -88,6 +85,17 @@ public final class PortableWorkstationMenus {
         }
     }
 
+    public static final class PortableFletchingMenu extends CraftingMenu {
+        public PortableFletchingMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
     public static final class PortableAnvilMenu extends AnvilMenu {
         private final PortableWorkstationsData data;
 
@@ -103,30 +111,13 @@ public final class PortableWorkstationMenus {
 
         @Override
         protected void onTake(Player player, ItemStack result) {
-            if (!player.getAbilities().instabuild) {
-                player.giveExperienceLevels(-this.getCost());
-            }
-
-            float breakChance = ForgeHooks.onAnvilRepair(player, result, this.inputSlots.getItem(0), this.inputSlots.getItem(1));
-            this.inputSlots.setItem(0, ItemStack.EMPTY);
-            if (this.repairItemCountCost > 0) {
-                ItemStack additional = this.inputSlots.getItem(1);
-                if (!additional.isEmpty() && additional.getCount() > this.repairItemCountCost) {
-                    additional.shrink(this.repairItemCountCost);
-                    this.inputSlots.setItem(1, additional);
-                } else {
-                    this.inputSlots.setItem(1, ItemStack.EMPTY);
-                }
-            } else {
-                this.inputSlots.setItem(1, ItemStack.EMPTY);
-            }
-            this.setMaximumCost(0);
-
+            super.onTake(player, result);
+            float breakChance = 0.12F;
             if (!player.getAbilities().instabuild && player.getRandom().nextFloat() < breakChance) {
                 boolean remains = data.damageAnvil();
                 PortableWorkstationsNetwork.sync((ServerPlayer) player);
                 if (!remains) {
-                    player.closeContainer();
+                    ((ServerPlayer) player).closeContainer();
                 }
             }
         }
@@ -164,7 +155,6 @@ public final class PortableWorkstationMenus {
                     if (this.costs[index] < index + 1) {
                         this.costs[index] = 0;
                     }
-                    this.costs[index] = ForgeEventFactory.onEnchantmentLevelSet(this.player.level(), this.player.blockPosition(), index, bookshelfPower, item, this.costs[index]);
                 }
 
                 for (int index = 0; index < 3; index++) {

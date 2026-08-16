@@ -1,17 +1,12 @@
 {
   "required": true,
-  "minVersion": "0.8",
   "package": "com.portable_workstations.mixin",
-  "compatibilityLevel": "JAVA_8",
-  "refmap": "portable_workstations.refmap.json",
-  "mixins": [
-  ],
+  "compatibilityLevel": "JAVA_17",
+  "mixins": [],
   "client": [
+    "client.PortableWorkstationsMouseMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "overwrites": {
-    "requireAnnotations": true
   }
 }

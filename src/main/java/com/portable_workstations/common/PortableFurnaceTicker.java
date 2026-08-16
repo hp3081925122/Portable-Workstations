@@ -40,8 +40,8 @@ public final class PortableFurnaceTicker {
                 data[1] = burnTime;
                 if (burnTime > 0) {
                     changed = true;
-                    if (fuel.hasCraftingRemainingItem()) {
-                        furnace.setItem(1, fuel.getCraftingRemainingItem());
+                    if (fuel.getItem().hasCraftingRemainingItem()) {
+                        furnace.setItem(1, new ItemStack(fuel.getItem().getCraftingRemainingItem()));
                     } else {
                         fuel.shrink(1);
                         furnace.setItem(1, fuel.isEmpty() ? ItemStack.EMPTY : fuel);

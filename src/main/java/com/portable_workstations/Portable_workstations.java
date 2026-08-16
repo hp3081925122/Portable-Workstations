@@ -1,23 +1,24 @@
 package com.portable_workstations;
 
-import com.mojang.logging.LogUtils;
+import com.portable_workstations.common.PortableWorkstationsCapability;
+import com.portable_workstations.common.PortableWorkstationsEvents;
+import com.portable_workstations.common.PortableWorkstationsInteractions;
 import com.portable_workstations.network.PortableWorkstationsNetwork;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.Mod;
-import org.slf4j.Logger;
+import net.fabricmc.api.ModInitializer;
 
-@Mod(Portable_workstations.MODID)
-public class Portable_workstations {
+public class Portable_workstations implements ModInitializer {
     public static final String MODID = "portable_workstations";
-    public static final Logger LOGGER = LogUtils.getLogger();
 
-    public Portable_workstations() {
+    @Override
+    public void onInitialize() {
+        PortableWorkstationsCapability.register();
         PortableWorkstationsNetwork.register();
-        MinecraftForge.EVENT_BUS.register(this);
+        PortableWorkstationsInteractions.register();
+        PortableWorkstationsEvents.register();
     }
 
     public static ResourceLocation location(String path) {
-        return ResourceLocation.fromNamespaceAndPath(MODID, path);
+        return new ResourceLocation(MODID, path);
     }
 }
