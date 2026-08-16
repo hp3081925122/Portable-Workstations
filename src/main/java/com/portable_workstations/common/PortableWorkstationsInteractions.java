@@ -23,6 +23,9 @@ public final class PortableWorkstationsInteractions {
         if (type == null && !isBookshelf) {
             return;
         }
+        if (type != null && !PortableWorkstationsConfig.isAllowed(stack)) {
+            return;
+        }
 
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.CONSUME);

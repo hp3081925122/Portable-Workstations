@@ -2,6 +2,7 @@ package com.portable_workstations;
 
 import com.mojang.logging.LogUtils;
 import com.portable_workstations.common.PortableWorkstationsCapability;
+import com.portable_workstations.common.PortableWorkstationsConfig;
 import com.portable_workstations.network.PortableWorkstationsNetwork;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
@@ -15,6 +16,7 @@ public class Portable_workstations {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public Portable_workstations(IEventBus modEventBus, ModContainer modContainer) {
+        PortableWorkstationsConfig.load();
         PortableWorkstationsCapability.ATTACHMENTS.register(modEventBus);
         modEventBus.addListener(PortableWorkstationsNetwork::register);
     }
