@@ -16,6 +16,7 @@ public enum WorkstationType {
     LOOM("loom", Blocks.LOOM),
     GRINDSTONE("grindstone", Blocks.GRINDSTONE),
     SMITHING_TABLE("smithing_table", Blocks.SMITHING_TABLE),
+    FLETCHING_TABLE("fletching_table", Blocks.FLETCHING_TABLE),
     CARTOGRAPHY_TABLE("cartography_table", Blocks.CARTOGRAPHY_TABLE);
 
     private final String id;

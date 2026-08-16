@@ -7,6 +7,7 @@ import net.minecraft.world.level.block.entity.BlastFurnaceBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import net.fabricmc.fabric.api.registry.FuelRegistry;
 
 public class PortableBlastFurnaceBlockEntity extends BlastFurnaceBlockEntity implements PortableFurnaceAccess {
     public PortableBlastFurnaceBlockEntity(BlockPos pos, BlockState state) {
@@ -38,6 +39,7 @@ public class PortableBlastFurnaceBlockEntity extends BlastFurnaceBlockEntity imp
     }
 
     public int getPortableBurnTime(ItemStack stack) {
-        return net.minecraftforge.common.ForgeHooks.getBurnTime(stack, RecipeType.BLASTING) / 2;
+        Integer burnTime = FuelRegistry.INSTANCE.get(stack.getItem());
+        return burnTime == null ? 0 : burnTime / 2;
     }
 }

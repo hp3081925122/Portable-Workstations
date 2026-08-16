@@ -5,105 +5,96 @@ import com.portable_workstations.common.PortableWorkstationsActions;
 import com.portable_workstations.common.PortableWorkstationsCapability;
 import com.portable_workstations.common.PortableWorkstationsData;
 import com.portable_workstations.common.WorkstationType;
-import net.minecraft.network.FriendlyByteBuf;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 
 public final class PortableWorkstationsNetwork {
-    private static final String PROTOCOL_VERSION = "1";
-    private static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
-            Portable_workstations.location("main"),
-            () -> PROTOCOL_VERSION,
-            PROTOCOL_VERSION::equals,
-            PROTOCOL_VERSION::equals);
-    private static int packetId;
-    private static boolean registered;
+    private static final ResourceLocation ACTION_ID = Portable_workstations.location("action");
+    private static final ResourceLocation SYNC_ID = Portable_workstations.location("sync");
 
     private PortableWorkstationsNetwork() {
     }
 
     public static void register() {
-        if (registered) {
-            return;
-        }
-        registered = true;
-        CHANNEL.registerMessage(packetId++, WorkstationActionPacket.class, WorkstationActionPacket::encode, WorkstationActionPacket::decode, WorkstationActionPacket::handle);
-        CHANNEL.registerMessage(packetId++, WorkstationSyncPacket.class, WorkstationSyncPacket::encode, WorkstationSyncPacket::decode, WorkstationSyncPacket::handle);
+        PayloadTypeRegistry.playC2S().register(ActionPayload.TYPE, ActionPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(SyncPayload.TYPE, SyncPayload.CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(ActionPayload.TYPE, (payload, context) -> {
+            WorkstationType type = WorkstationType.byId(payload.typeId());
+            if (type != null) {
+                context.server().execute(() -> PortableWorkstationsActions.handleAction(context.player(), type, payload.retrieve()));
+            }
+        });
+    }
+
+    public static void registerClient() {
+        ClientPlayNetworking.registerGlobalReceiver(SyncPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> com.portable_workstations.client.PortableWorkstationsClientState.apply(payload.entries(), payload.bookshelves())));
     }
 
     public static void requestAction(WorkstationType type, boolean retrieve) {
-        CHANNEL.sendToServer(new WorkstationActionPacket(type.id(), retrieve));
+        ClientPlayNetworking.send(new ActionPayload(type.id(), retrieve));
     }
 
     public static void sync(ServerPlayer player) {
-        player.getCapability(PortableWorkstationsCapability.DATA).ifPresent(data -> {
-            List<SyncEntry> entries = new ArrayList<>();
-            for (PortableWorkstationsData.WorkstationEntry entry : data.entries()) {
-                entries.add(new SyncEntry(entry.type().id(), entry.displayStack().copyWithCount(1)));
-            }
-            CHANNEL.send(PacketDistributor.PLAYER.with(() -> player), new WorkstationSyncPacket(entries, data.bookshelves()));
-        });
+        PortableWorkstationsData data = PortableWorkstationsCapability.data(player);
+        List<SyncEntry> entries = new ArrayList<>();
+        for (PortableWorkstationsData.WorkstationEntry entry : data.entries()) {
+            entries.add(new SyncEntry(entry.type().id(), entry.displayStack().copyWithCount(1)));
+        }
+        ServerPlayNetworking.send(player, new SyncPayload(entries, data.bookshelves()));
     }
 
     public record SyncEntry(String type, ItemStack stack) {
     }
 
-    private record WorkstationActionPacket(String type, boolean retrieve) {
-        private static void encode(WorkstationActionPacket packet, FriendlyByteBuf buffer) {
-            buffer.writeUtf(packet.type);
-            buffer.writeBoolean(packet.retrieve);
-        }
+    private record ActionPayload(String typeId, boolean retrieve) implements CustomPacketPayload {
+        private static final Type<ActionPayload> TYPE = new Type<>(ACTION_ID);
+        private static final StreamCodec<RegistryFriendlyByteBuf, ActionPayload> CODEC = StreamCodec.of(
+                (buffer, payload) -> {
+                    buffer.writeUtf(payload.typeId());
+                    buffer.writeBoolean(payload.retrieve());
+                },
+                buffer -> new ActionPayload(buffer.readUtf(64), buffer.readBoolean()));
 
-        private static WorkstationActionPacket decode(FriendlyByteBuf buffer) {
-            return new WorkstationActionPacket(buffer.readUtf(64), buffer.readBoolean());
-        }
-
-        private static void handle(WorkstationActionPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
-            NetworkEvent.Context context = contextSupplier.get();
-            context.enqueueWork(() -> {
-                ServerPlayer player = context.getSender();
-                WorkstationType type = WorkstationType.byId(packet.type);
-                if (player != null && type != null) {
-                    PortableWorkstationsActions.handleAction(player, type, packet.retrieve);
-                }
-            });
-            context.setPacketHandled(true);
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
         }
     }
 
-    private record WorkstationSyncPacket(List<SyncEntry> entries, int bookshelves) {
-        private static void encode(WorkstationSyncPacket packet, FriendlyByteBuf buffer) {
-            buffer.writeVarInt(packet.entries.size());
-            for (SyncEntry entry : packet.entries) {
-                buffer.writeUtf(entry.type);
-                buffer.writeItem(entry.stack);
-            }
-            buffer.writeVarInt(packet.bookshelves);
-        }
+    private record SyncPayload(List<SyncEntry> entries, int bookshelves) implements CustomPacketPayload {
+        private static final Type<SyncPayload> TYPE = new Type<>(SYNC_ID);
+        private static final StreamCodec<RegistryFriendlyByteBuf, SyncPayload> CODEC = StreamCodec.of(
+                (buffer, payload) -> {
+                    buffer.writeVarInt(payload.entries().size());
+                    for (SyncEntry entry : payload.entries()) {
+                        buffer.writeUtf(entry.type());
+                        ItemStack.STREAM_CODEC.encode(buffer, entry.stack());
+                    }
+                    buffer.writeVarInt(payload.bookshelves());
+                },
+                buffer -> {
+                    int count = buffer.readVarInt();
+                    List<SyncEntry> entries = new ArrayList<>();
+                    for (int index = 0; index < count; index++) {
+                        entries.add(new SyncEntry(buffer.readUtf(64), ItemStack.STREAM_CODEC.decode(buffer)));
+                    }
+                    return new SyncPayload(entries, buffer.readVarInt());
+                });
 
-        private static WorkstationSyncPacket decode(FriendlyByteBuf buffer) {
-            int count = buffer.readVarInt();
-            List<SyncEntry> entries = new ArrayList<>();
-            for (int index = 0; index < count; index++) {
-                entries.add(new SyncEntry(buffer.readUtf(64), buffer.readItem()));
-            }
-            return new WorkstationSyncPacket(entries, buffer.readVarInt());
-        }
-
-        private static void handle(WorkstationSyncPacket packet, Supplier<NetworkEvent.Context> contextSupplier) {
-            NetworkEvent.Context context = contextSupplier.get();
-            context.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> com.portable_workstations.client.PortableWorkstationsClientState.apply(packet.entries, packet.bookshelves)));
-            context.setPacketHandled(true);
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
         }
     }
 }

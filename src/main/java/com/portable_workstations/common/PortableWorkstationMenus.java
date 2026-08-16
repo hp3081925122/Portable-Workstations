@@ -3,8 +3,8 @@ package com.portable_workstations.common;
 import com.portable_workstations.network.PortableWorkstationsNetwork;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -26,17 +26,15 @@ import net.minecraft.world.inventory.GrindstoneMenu;
 import net.minecraft.world.inventory.LoomMenu;
 import net.minecraft.world.inventory.SmithingMenu;
 import net.minecraft.world.inventory.StonecutterMenu;
-import net.minecraft.world.item.EnchantedBookItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.EnchantmentInstance;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.level.block.AnvilBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.ForgeHooks;
-import net.minecraftforge.common.Tags;
-import net.minecraftforge.event.ForgeEventFactory;
 
 import java.util.List;
 
@@ -88,6 +86,17 @@ public final class PortableWorkstationMenus {
         }
     }
 
+    public static final class PortableFletchingMenu extends CraftingMenu {
+        public PortableFletchingMenu(int id, Inventory inventory) {
+            super(id, inventory, ContainerLevelAccess.create(inventory.player.level(), inventory.player.blockPosition()));
+        }
+
+        @Override
+        public boolean stillValid(Player player) {
+            return true;
+        }
+    }
+
     public static final class PortableAnvilMenu extends AnvilMenu {
         private final PortableWorkstationsData data;
 
@@ -103,30 +112,13 @@ public final class PortableWorkstationMenus {
 
         @Override
         protected void onTake(Player player, ItemStack result) {
-            if (!player.getAbilities().instabuild) {
-                player.giveExperienceLevels(-this.getCost());
-            }
-
-            float breakChance = ForgeHooks.onAnvilRepair(player, result, this.inputSlots.getItem(0), this.inputSlots.getItem(1));
-            this.inputSlots.setItem(0, ItemStack.EMPTY);
-            if (this.repairItemCountCost > 0) {
-                ItemStack additional = this.inputSlots.getItem(1);
-                if (!additional.isEmpty() && additional.getCount() > this.repairItemCountCost) {
-                    additional.shrink(this.repairItemCountCost);
-                    this.inputSlots.setItem(1, additional);
-                } else {
-                    this.inputSlots.setItem(1, ItemStack.EMPTY);
-                }
-            } else {
-                this.inputSlots.setItem(1, ItemStack.EMPTY);
-            }
-            this.setMaximumCost(0);
-
+            super.onTake(player, result);
+            float breakChance = 0.12F;
             if (!player.getAbilities().instabuild && player.getRandom().nextFloat() < breakChance) {
                 boolean remains = data.damageAnvil();
                 PortableWorkstationsNetwork.sync((ServerPlayer) player);
                 if (!remains) {
-                    player.closeContainer();
+                    ((ServerPlayer) player).closeContainer();
                 }
             }
         }
@@ -164,7 +156,6 @@ public final class PortableWorkstationMenus {
                     if (this.costs[index] < index + 1) {
                         this.costs[index] = 0;
                     }
-                    this.costs[index] = ForgeEventFactory.onEnchantmentLevelSet(this.player.level(), this.player.blockPosition(), index, bookshelfPower, item, this.costs[index]);
                 }
 
                 for (int index = 0; index < 3; index++) {
@@ -172,7 +163,8 @@ public final class PortableWorkstationMenus {
                         List<EnchantmentInstance> enchantments = getEnchantmentList(item, index, this.costs[index]);
                         if (!enchantments.isEmpty()) {
                             EnchantmentInstance enchantment = enchantments.get(random.nextInt(enchantments.size()));
-                            this.enchantClue[index] = BuiltInRegistries.ENCHANTMENT.getId(enchantment.enchantment);
+                            Registry<net.minecraft.world.item.enchantment.Enchantment> registry = this.player.level().registryAccess().registryOrThrow(Registries.ENCHANTMENT);
+                            this.enchantClue[index] = registry.getId(enchantment.enchantment.value());
                             this.levelClue[index] = enchantment.level;
                         }
                     }
@@ -214,16 +206,15 @@ public final class PortableWorkstationMenus {
             ItemStack enchanted = item;
             if (isBook) {
                 enchanted = new ItemStack(Items.ENCHANTED_BOOK);
-                CompoundTag tag = item.getTag();
-                if (tag != null) {
-                    enchanted.setTag(tag.copy());
+                ItemEnchantments.Mutable stored = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
+                for (EnchantmentInstance enchantment : enchantments) {
+                    stored.set(enchantment.enchantment, enchantment.level);
                 }
+                enchanted.set(DataComponents.STORED_ENCHANTMENTS, stored.toImmutable());
                 this.getSlot(0).set(enchanted);
             }
             for (EnchantmentInstance enchantment : enchantments) {
-                if (isBook) {
-                    EnchantedBookItem.addEnchantment(enchanted, enchantment);
-                } else {
+                if (!isBook) {
                     enchanted.enchant(enchantment.enchantment, enchantment.level);
                 }
             }
@@ -251,7 +242,8 @@ public final class PortableWorkstationMenus {
 
         private List<EnchantmentInstance> getEnchantmentList(ItemStack item, int slot, int cost) {
             random.setSeed((long) (this.getEnchantmentSeed() + slot));
-            List<EnchantmentInstance> enchantments = EnchantmentHelper.selectEnchantment(random, item, cost, false);
+            Registry<net.minecraft.world.item.enchantment.Enchantment> registry = this.player.level().registryAccess().registryOrThrow(Registries.ENCHANTMENT);
+            List<EnchantmentInstance> enchantments = EnchantmentHelper.selectEnchantment(random, item, cost, registry.holders().map(holder -> (net.minecraft.core.Holder<net.minecraft.world.item.enchantment.Enchantment>) holder));
             if (item.is(Items.BOOK) && enchantments.size() > 1) {
                 enchantments.remove(random.nextInt(enchantments.size()));
             }
