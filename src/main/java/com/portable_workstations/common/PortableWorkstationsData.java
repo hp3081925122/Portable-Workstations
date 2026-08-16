@@ -1,9 +1,11 @@
 package com.portable_workstations.common;
 
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.world.item.BlockItem;
+import net.minecraft.util.ProblemReporter;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.TypedEntityData;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.AnvilBlock;
@@ -12,12 +14,16 @@ import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.storage.TagValueInput;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
+import net.neoforged.neoforge.common.util.ValueIOSerializable;
 
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-public final class PortableWorkstationsData {
+public final class PortableWorkstationsData implements ValueIOSerializable {
     private static final String ENTRIES_TAG = "Entries";
     private static final String TYPE_TAG = "Type";
     private static final String STACK_TAG = "Stack";
@@ -80,11 +86,11 @@ public final class PortableWorkstationsData {
         if (entry.furnace != null) {
             entry.furnace.furnaceEntity().setLevel(level);
             BlockEntityType<?> blockEntityType = type == WorkstationType.BLAST_FURNACE ? BlockEntityType.BLAST_FURNACE : BlockEntityType.FURNACE;
-            BlockItem.setBlockEntityData(result, blockEntityType, entry.furnace.furnaceEntity().saveWithoutMetadata());
+            result.set(DataComponents.BLOCK_ENTITY_DATA, TypedEntityData.of(blockEntityType, entry.furnace.furnaceEntity().saveWithoutMetadata(level.registryAccess())));
         }
         if (entry.brewingStand != null) {
             entry.brewingStand.setLevel(level);
-            BlockItem.setBlockEntityData(result, BlockEntityType.BREWING_STAND, entry.brewingStand.saveWithoutMetadata());
+            result.set(DataComponents.BLOCK_ENTITY_DATA, TypedEntityData.of(BlockEntityType.BREWING_STAND, entry.brewingStand.saveWithoutMetadata(level.registryAccess())));
         }
         return result;
     }
@@ -127,55 +133,48 @@ public final class PortableWorkstationsData {
         }
     }
 
-    public CompoundTag serializeNBT() {
-        CompoundTag root = new CompoundTag();
-        root.putInt(BOOKSHELVES_TAG, bookshelves);
-        ListTag serializedEntries = new ListTag();
+    @Override
+    public void serialize(ValueOutput output) {
+        output.putInt(BOOKSHELVES_TAG, bookshelves);
+        ValueOutput.ValueOutputList serializedEntries = output.childrenList(ENTRIES_TAG);
         for (WorkstationEntry entry : entries.values()) {
-            CompoundTag serializedEntry = new CompoundTag();
+            ValueOutput serializedEntry = serializedEntries.addChild();
             serializedEntry.putString(TYPE_TAG, entry.type.id());
-            serializedEntry.put(STACK_TAG, entry.displayStack.save(new CompoundTag()));
+            serializedEntry.store(STACK_TAG, ItemStack.CODEC, entry.displayStack);
             if (entry.furnace != null) {
-                serializedEntry.put(FURNACE_TAG, entry.furnace.furnaceEntity().saveWithoutMetadata());
+                entry.furnace.furnaceEntity().saveWithoutMetadata(serializedEntry.child(FURNACE_TAG));
             }
             if (entry.brewingStand != null) {
-                serializedEntry.put(BREWING_STAND_TAG, entry.brewingStand.saveWithoutMetadata());
+                entry.brewingStand.saveWithoutMetadata(serializedEntry.child(BREWING_STAND_TAG));
             }
-            serializedEntries.add(serializedEntry);
         }
-        root.put(ENTRIES_TAG, serializedEntries);
-        return root;
     }
 
-    public void deserializeNBT(CompoundTag root) {
+    @Override
+    public void deserialize(ValueInput input) {
         entries.clear();
-        bookshelves = Math.max(0, Math.min(15, root.getInt(BOOKSHELVES_TAG)));
-        ListTag serializedEntries = root.getList(ENTRIES_TAG, 10);
-        for (int index = 0; index < serializedEntries.size(); index++) {
-            CompoundTag serializedEntry = serializedEntries.getCompound(index);
-            WorkstationType type = WorkstationType.byId(serializedEntry.getString(TYPE_TAG));
+        bookshelves = Math.max(0, Math.min(15, input.getIntOr(BOOKSHELVES_TAG, 0)));
+        HolderLookup.Provider provider = input.lookup();
+        for (ValueInput serializedEntry : input.childrenListOrEmpty(ENTRIES_TAG)) {
+            WorkstationType type = WorkstationType.byId(serializedEntry.getStringOr(TYPE_TAG, ""));
             if (type == null || entries.containsKey(type)) {
                 continue;
             }
 
-            ItemStack stack = ItemStack.of(serializedEntry.getCompound(STACK_TAG));
+            ItemStack stack = serializedEntry.read(STACK_TAG, ItemStack.CODEC).orElse(ItemStack.EMPTY);
             if (!type.matches(stack)) {
                 stack = type.defaultStack();
             }
             WorkstationEntry entry = new WorkstationEntry(type, stack.copyWithCount(1));
-            if (type == WorkstationType.FURNACE && serializedEntry.contains(FURNACE_TAG, 10)) {
-                entry.furnace = createFurnaceFromTag(serializedEntry.getCompound(FURNACE_TAG), false);
-            } else if (type == WorkstationType.BLAST_FURNACE && serializedEntry.contains(FURNACE_TAG, 10)) {
-                entry.furnace = createFurnaceFromTag(serializedEntry.getCompound(FURNACE_TAG), true);
-            } else if (type == WorkstationType.BREWING_STAND && serializedEntry.contains(BREWING_STAND_TAG, 10)) {
-                entry.brewingStand = createBrewingStandFromTag(serializedEntry.getCompound(BREWING_STAND_TAG));
+            if (type == WorkstationType.FURNACE) {
+                serializedEntry.child(FURNACE_TAG).ifPresent(value -> entry.furnace = createFurnaceFromInput(value, false));
+            } else if (type == WorkstationType.BLAST_FURNACE) {
+                serializedEntry.child(FURNACE_TAG).ifPresent(value -> entry.furnace = createFurnaceFromInput(value, true));
+            } else if (type == WorkstationType.BREWING_STAND) {
+                serializedEntry.child(BREWING_STAND_TAG).ifPresent(value -> entry.brewingStand = createBrewingStandFromInput(value));
             }
             entries.put(type, entry);
         }
-    }
-
-    public void copyFrom(PortableWorkstationsData source) {
-        deserializeNBT(source.serializeNBT());
     }
 
     private static PortableFurnaceAccess createFurnace(ItemStack source, ServerLevel level, boolean blast) {
@@ -183,34 +182,34 @@ public final class PortableWorkstationsData {
                 ? new PortableBlastFurnaceBlockEntity(BlockPos.ZERO, Blocks.BLAST_FURNACE.defaultBlockState())
                 : new PortableFurnaceBlockEntity(BlockPos.ZERO, Blocks.FURNACE.defaultBlockState());
         furnace.furnaceEntity().setLevel(level);
-        CompoundTag blockEntityTag = BlockItem.getBlockEntityData(source);
-        if (blockEntityTag != null) {
-            furnace.furnaceEntity().load(blockEntityTag);
+        TypedEntityData<BlockEntityType<?>> blockEntityData = source.get(DataComponents.BLOCK_ENTITY_DATA);
+        if (blockEntityData != null) {
+            furnace.furnaceEntity().loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), blockEntityData.copyTagWithoutId()));
         }
         return furnace;
     }
 
-    private static PortableFurnaceAccess createFurnaceFromTag(CompoundTag tag, boolean blast) {
+    private static PortableFurnaceAccess createFurnaceFromInput(ValueInput input, boolean blast) {
         PortableFurnaceAccess furnace = blast
                 ? new PortableBlastFurnaceBlockEntity(BlockPos.ZERO, Blocks.BLAST_FURNACE.defaultBlockState())
                 : new PortableFurnaceBlockEntity(BlockPos.ZERO, Blocks.FURNACE.defaultBlockState());
-        furnace.furnaceEntity().load(tag);
+        furnace.furnaceEntity().loadWithComponents(input);
         return furnace;
     }
 
     private static PortableBrewingStandBlockEntity createBrewingStand(ItemStack source, ServerLevel level) {
         PortableBrewingStandBlockEntity brewingStand = new PortableBrewingStandBlockEntity(BlockPos.ZERO, Blocks.BREWING_STAND.defaultBlockState());
         brewingStand.setLevel(level);
-        CompoundTag blockEntityTag = BlockItem.getBlockEntityData(source);
-        if (blockEntityTag != null) {
-            brewingStand.load(blockEntityTag);
+        TypedEntityData<BlockEntityType<?>> blockEntityData = source.get(DataComponents.BLOCK_ENTITY_DATA);
+        if (blockEntityData != null) {
+            brewingStand.loadWithComponents(TagValueInput.create(ProblemReporter.DISCARDING, level.registryAccess(), blockEntityData.copyTagWithoutId()));
         }
         return brewingStand;
     }
 
-    private static PortableBrewingStandBlockEntity createBrewingStandFromTag(CompoundTag tag) {
+    private static PortableBrewingStandBlockEntity createBrewingStandFromInput(ValueInput input) {
         PortableBrewingStandBlockEntity brewingStand = new PortableBrewingStandBlockEntity(BlockPos.ZERO, Blocks.BREWING_STAND.defaultBlockState());
-        brewingStand.load(tag);
+        brewingStand.loadWithComponents(input);
         return brewingStand;
     }
 

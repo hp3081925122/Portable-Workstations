@@ -7,6 +7,7 @@ import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import net.minecraft.world.level.block.entity.FuelValues;
 import net.minecraft.world.item.crafting.RecipeType;
 
 public class PortableFurnaceBlockEntity extends FurnaceBlockEntity implements PortableFurnaceAccess {
@@ -38,7 +39,7 @@ public class PortableFurnaceBlockEntity extends FurnaceBlockEntity implements Po
         return dataAccess;
     }
 
-    public int getPortableBurnTime(ItemStack stack) {
-        return net.minecraftforge.common.ForgeHooks.getBurnTime(stack, RecipeType.SMELTING);
+    public int getPortableBurnTime(ItemStack stack, FuelValues fuelValues) {
+        return stack.getBurnTime(RecipeType.SMELTING, fuelValues);
     }
 }

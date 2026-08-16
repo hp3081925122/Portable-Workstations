@@ -1,6 +1,7 @@
 package com.portable_workstations.common;
 
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import net.minecraft.world.level.block.entity.FuelValues;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.inventory.ContainerData;
 
@@ -13,5 +14,5 @@ public interface PortableFurnaceAccess {
 
     ContainerData portableDataAccess();
 
-    int getPortableBurnTime(ItemStack fuel);
+    int getPortableBurnTime(ItemStack fuel, FuelValues fuelValues);
 }

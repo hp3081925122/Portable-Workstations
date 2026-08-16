@@ -7,6 +7,7 @@ import net.minecraft.world.level.block.entity.BlastFurnaceBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+import net.minecraft.world.level.block.entity.FuelValues;
 
 public class PortableBlastFurnaceBlockEntity extends BlastFurnaceBlockEntity implements PortableFurnaceAccess {
     public PortableBlastFurnaceBlockEntity(BlockPos pos, BlockState state) {
@@ -37,7 +38,7 @@ public class PortableBlastFurnaceBlockEntity extends BlastFurnaceBlockEntity imp
         return dataAccess;
     }
 
-    public int getPortableBurnTime(ItemStack stack) {
-        return net.minecraftforge.common.ForgeHooks.getBurnTime(stack, RecipeType.BLASTING) / 2;
+    public int getPortableBurnTime(ItemStack stack, FuelValues fuelValues) {
+        return stack.getBurnTime(RecipeType.BLASTING, fuelValues) / 2;
     }
 }

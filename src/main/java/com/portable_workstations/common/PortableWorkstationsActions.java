@@ -15,22 +15,21 @@ public final class PortableWorkstationsActions {
     }
 
     public static void handleAction(ServerPlayer player, WorkstationType type, boolean retrieve) {
-        player.getCapability(PortableWorkstationsCapability.DATA).ifPresent(data -> {
-            if (!data.isUnlocked(type)) {
-                PortableWorkstationsNetwork.sync(player);
-                return;
-            }
-            if (retrieve) {
-                retrieve(player, data, type);
-            } else {
-                open(player, data, type);
-            }
-        });
+        PortableWorkstationsData data = player.getData(PortableWorkstationsCapability.DATA);
+        if (!data.isUnlocked(type)) {
+            PortableWorkstationsNetwork.sync(player);
+            return;
+        }
+        if (retrieve) {
+            retrieve(player, data, type);
+        } else {
+            open(player, data, type);
+        }
     }
 
     private static void retrieve(ServerPlayer player, PortableWorkstationsData data, WorkstationType type) {
         player.closeContainer();
-        net.minecraft.world.item.ItemStack stack = data.remove(type, player.serverLevel());
+        net.minecraft.world.item.ItemStack stack = data.remove(type, player.level());
         if (!stack.isEmpty() && !player.getInventory().add(stack)) {
             player.drop(stack, false);
         }
@@ -44,9 +43,9 @@ public final class PortableWorkstationsActions {
         }
 
         if (type == WorkstationType.FURNACE || type == WorkstationType.BLAST_FURNACE) {
-            entry.furnace().furnaceEntity().setLevel(player.serverLevel());
+            entry.furnace().furnaceEntity().setLevel(player.level());
         } else if (type == WorkstationType.BREWING_STAND) {
-            entry.brewingStand().setLevel(player.serverLevel());
+            entry.brewingStand().setLevel(player.level());
         }
         switch (type) {
             case FURNACE -> player.openMenu(new SimpleMenuProvider((id, inventory, ignored) -> new PortableWorkstationMenus.PortableFurnaceMenu(id, inventory, entry.furnace()), Component.translatable("container.furnace")));

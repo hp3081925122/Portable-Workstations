@@ -1,12 +1,12 @@
 package com.portable_workstations.common;
 
 import net.minecraft.core.RegistryAccess;
-import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
-import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.item.crafting.SingleRecipeInput;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
@@ -29,19 +29,21 @@ public final class PortableFurnaceTicker {
         boolean hasInput = !input.isEmpty();
         boolean hasFuel = !fuel.isEmpty();
         if (data[0] > 0 || hasFuel && hasInput) {
-            Recipe<?> recipe = hasInput ? (Recipe<?>) level.getRecipeManager().getRecipeFor((RecipeType) recipeType, furnace, level).orElse(null) : null;
-            if (recipe instanceof AbstractCookingRecipe cookingRecipe && data[3] <= 0) {
-                data[3] = cookingRecipe.getCookingTime();
+            RecipeHolder<AbstractCookingRecipe> recipe = hasInput
+                    ? level.recipeAccess().getRecipeFor((RecipeType<AbstractCookingRecipe>) recipeType, new SingleRecipeInput(input), level).orElse(null)
+                    : null;
+            if (recipe != null && data[3] <= 0) {
+                data[3] = recipe.value().cookingTime();
             }
 
-            int burnTime = portableFurnace.getPortableBurnTime(fuel);
+            int burnTime = portableFurnace.getPortableBurnTime(fuel, level.fuelValues());
             if (data[0] <= 0 && recipe != null && canBurn(level.registryAccess(), furnace, recipe)) {
                 data[0] = burnTime;
                 data[1] = burnTime;
                 if (burnTime > 0) {
                     changed = true;
-                    if (fuel.hasCraftingRemainingItem()) {
-                        furnace.setItem(1, fuel.getCraftingRemainingItem());
+                    if (fuel.getCraftingRemainder() != null) {
+                        furnace.setItem(1, fuel.getCraftingRemainder().create());
                     } else {
                         fuel.shrink(1);
                         furnace.setItem(1, fuel.isEmpty() ? ItemStack.EMPTY : fuel);
@@ -53,7 +55,7 @@ public final class PortableFurnaceTicker {
                 data[2]++;
                 if (data[2] >= data[3]) {
                     data[2] = 0;
-                    data[3] = recipe instanceof AbstractCookingRecipe cookingRecipe ? cookingRecipe.getCookingTime() : 200;
+                    data[3] = recipe.value().cookingTime();
                     burn(level.registryAccess(), furnace, recipe);
                 }
                 changed = true;
@@ -76,12 +78,12 @@ public final class PortableFurnaceTicker {
         }
     }
 
-    private static boolean canBurn(RegistryAccess registryAccess, AbstractFurnaceBlockEntity furnace, Recipe<?> recipe) {
-        if (furnace.getItem(0).isEmpty()) {
+    private static boolean canBurn(RegistryAccess registryAccess, AbstractFurnaceBlockEntity furnace, RecipeHolder<? extends AbstractCookingRecipe> recipe) {
+        if (furnace.getItem(0).isEmpty() || recipe == null) {
             return false;
         }
 
-        ItemStack result = ((Recipe<Container>) recipe).assemble(furnace, registryAccess);
+        ItemStack result = recipe.value().assemble(new SingleRecipeInput(furnace.getItem(0)));
         if (result.isEmpty()) {
             return false;
         }
@@ -96,13 +98,13 @@ public final class PortableFurnaceTicker {
         return output.getCount() + result.getCount() <= furnace.getMaxStackSize() && output.getCount() + result.getCount() <= output.getMaxStackSize();
     }
 
-    private static void burn(RegistryAccess registryAccess, AbstractFurnaceBlockEntity furnace, Recipe<?> recipe) {
+    private static void burn(RegistryAccess registryAccess, AbstractFurnaceBlockEntity furnace, RecipeHolder<? extends AbstractCookingRecipe> recipe) {
         if (!canBurn(registryAccess, furnace, recipe)) {
             return;
         }
 
         ItemStack input = furnace.getItem(0);
-        ItemStack result = ((Recipe<Container>) recipe).assemble(furnace, registryAccess);
+        ItemStack result = recipe.value().assemble(new SingleRecipeInput(furnace.getItem(0)));
         ItemStack output = furnace.getItem(2);
         if (output.isEmpty()) {
             furnace.setItem(2, result.copy());
