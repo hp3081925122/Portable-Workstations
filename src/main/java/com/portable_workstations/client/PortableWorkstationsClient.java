@@ -3,18 +3,18 @@ package com.portable_workstations.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.portable_workstations.Portable_workstations;
 import com.portable_workstations.network.PortableWorkstationsNetwork;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.InputEvent;
+import net.neoforged.neoforge.client.event.RegisterGuiLayersEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
-import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
-import net.minecraftforge.client.event.InputEvent;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
-@Mod.EventBusSubscriber(modid = Portable_workstations.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@EventBusSubscriber(modid = Portable_workstations.MODID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class PortableWorkstationsClient {
     public static final KeyMapping OPEN_WHEEL = new KeyMapping(
             "key.portable_workstations.open_wheel",
@@ -25,23 +25,23 @@ public final class PortableWorkstationsClient {
     private PortableWorkstationsClient() {
     }
 
-    @net.minecraftforge.eventbus.api.SubscribeEvent
+    @SubscribeEvent
     public static void registerKeyMappings(RegisterKeyMappingsEvent event) {
         event.register(OPEN_WHEEL);
     }
 
     @SubscribeEvent
-    public static void registerGuiOverlays(RegisterGuiOverlaysEvent event) {
-        event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "portable_workstations_wheel", (gui, graphics, partialTick, screenWidth, screenHeight) ->
-                PortableWorkstationsWheelOverlay.render(gui, graphics, partialTick, screenWidth, screenHeight));
+    public static void registerGuiLayers(RegisterGuiLayersEvent event) {
+        event.registerAbove(VanillaGuiLayers.HOTBAR, Portable_workstations.location("portable_workstations_wheel"),
+                (graphics, deltaTracker) -> PortableWorkstationsWheelOverlay.render(graphics));
     }
 
-    @Mod.EventBusSubscriber(modid = Portable_workstations.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
+    @EventBusSubscriber(modid = Portable_workstations.MODID, bus = EventBusSubscriber.Bus.GAME, value = Dist.CLIENT)
     public static final class ClientEvents {
         private ClientEvents() {
         }
 
-        @net.minecraftforge.eventbus.api.SubscribeEvent
+        @SubscribeEvent
         public static void keyInput(InputEvent.Key event) {
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.player == null || minecraft.level == null || !OPEN_WHEEL.matches(event.getKey(), event.getScanCode())) {

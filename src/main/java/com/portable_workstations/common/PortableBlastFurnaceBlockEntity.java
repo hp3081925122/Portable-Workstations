@@ -38,6 +38,6 @@ public class PortableBlastFurnaceBlockEntity extends BlastFurnaceBlockEntity imp
     }
 
     public int getPortableBurnTime(ItemStack stack) {
-        return net.minecraftforge.common.ForgeHooks.getBurnTime(stack, RecipeType.BLASTING) / 2;
+        return stack.getBurnTime(RecipeType.BLASTING) / 2;
     }
 }

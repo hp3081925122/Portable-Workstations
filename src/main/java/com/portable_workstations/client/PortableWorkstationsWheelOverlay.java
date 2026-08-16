@@ -2,6 +2,7 @@ package com.portable_workstations.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
+import com.mojang.blaze3d.vertex.BufferUploader;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
@@ -11,7 +12,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.client.gui.overlay.ForgeGui;
 import org.joml.Matrix4f;
 
 import java.util.List;
@@ -46,11 +46,13 @@ public final class PortableWorkstationsWheelOverlay {
     private PortableWorkstationsWheelOverlay() {
     }
 
-    public static void render(ForgeGui gui, GuiGraphics graphics, float partialTick, int screenWidth, int screenHeight) {
+    public static void render(GuiGraphics graphics) {
         if (!PortableWorkstationsWheelState.isOpen()) {
             return;
         }
 
+        int screenWidth = graphics.guiWidth();
+        int screenHeight = graphics.guiHeight();
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
             return;
@@ -166,38 +168,37 @@ public final class PortableWorkstationsWheelOverlay {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        builder.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
         double startRadians = Math.toRadians(startAngle);
         double endRadians = Math.toRadians(endAngle);
         for (int index = 0; index <= segments; index++) {
             double angle = startRadians + (endRadians - startRadians) * index / segments;
             float cos = (float) Math.cos(angle);
             float sin = (float) Math.sin(angle);
-            builder.vertex(matrix, centerX + (float) outerRadius * cos, centerY + (float) outerRadius * sin, 0.0F)
-                    .color(outerRed, outerGreen, outerBlue, outerAlpha).endVertex();
-            builder.vertex(matrix, centerX + (float) innerRadius * cos, centerY + (float) innerRadius * sin, 0.0F)
-                    .color(innerRed, innerGreen, innerBlue, innerAlpha).endVertex();
+            builder.addVertex(matrix, centerX + (float) outerRadius * cos, centerY + (float) outerRadius * sin, 0.0F)
+                    .setColor(outerRed, outerGreen, outerBlue, outerAlpha);
+            builder.addVertex(matrix, centerX + (float) innerRadius * cos, centerY + (float) innerRadius * sin, 0.0F)
+                    .setColor(innerRed, innerGreen, innerBlue, innerAlpha);
         }
-        tesselator.end();
+        BufferUploader.drawWithShader(builder.buildOrThrow());
 
         if (borderColor != 0) {
             float alpha = ((borderColor >>> 24) & 255) / 255.0F;
             float red = ((borderColor >>> 16) & 255) / 255.0F;
             float green = ((borderColor >>> 8) & 255) / 255.0F;
             float blue = (borderColor & 255) / 255.0F;
-            builder.begin(VertexFormat.Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+            builder = tesselator.begin(VertexFormat.Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
             for (int index = 0; index <= segments; index++) {
                 double angle = startRadians + (endRadians - startRadians) * index / segments;
-                builder.vertex(matrix, centerX + (float) outerRadius * (float) Math.cos(angle), centerY + (float) outerRadius * (float) Math.sin(angle), 0.0F)
-                        .color(red, green, blue, alpha).endVertex();
+                builder.addVertex(matrix, centerX + (float) outerRadius * (float) Math.cos(angle), centerY + (float) outerRadius * (float) Math.sin(angle), 0.0F)
+                        .setColor(red, green, blue, alpha);
             }
             for (int index = segments; index >= 0; index--) {
                 double angle = startRadians + (endRadians - startRadians) * index / segments;
-                builder.vertex(matrix, centerX + (float) innerRadius * (float) Math.cos(angle), centerY + (float) innerRadius * (float) Math.sin(angle), 0.0F)
-                        .color(red, green, blue, alpha).endVertex();
+                builder.addVertex(matrix, centerX + (float) innerRadius * (float) Math.cos(angle), centerY + (float) innerRadius * (float) Math.sin(angle), 0.0F)
+                        .setColor(red, green, blue, alpha);
             }
-            tesselator.end();
+            BufferUploader.drawWithShader(builder.buildOrThrow());
         }
         RenderSystem.disableBlend();
     }
@@ -212,18 +213,17 @@ public final class PortableWorkstationsWheelOverlay {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        builder.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.TRIANGLE_STRIP, DefaultVertexFormat.POSITION_COLOR);
         for (int index = 0; index <= segments; index++) {
             double angle = Math.toRadians(index * 360.0D / segments);
             float cos = (float) Math.cos(angle);
             float sin = (float) Math.sin(angle);
-            builder.vertex(matrix, centerX + (float) outerRadius * cos, centerY + (float) outerRadius * sin, 0.0F)
-                    .color(red, green, blue, alpha).endVertex();
-            builder.vertex(matrix, centerX + (float) innerRadius * cos, centerY + (float) innerRadius * sin, 0.0F)
-                    .color(red, green, blue, alpha).endVertex();
+            builder.addVertex(matrix, centerX + (float) outerRadius * cos, centerY + (float) outerRadius * sin, 0.0F)
+                    .setColor(red, green, blue, alpha);
+            builder.addVertex(matrix, centerX + (float) innerRadius * cos, centerY + (float) innerRadius * sin, 0.0F)
+                    .setColor(red, green, blue, alpha);
         }
-        tesselator.end();
+        BufferUploader.drawWithShader(builder.buildOrThrow());
         RenderSystem.disableBlend();
     }
 
@@ -237,15 +237,14 @@ public final class PortableWorkstationsWheelOverlay {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        builder.begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
-        builder.vertex(matrix, centerX, centerY, 0.0F).color(red, green, blue, alpha).endVertex();
+        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.TRIANGLE_FAN, DefaultVertexFormat.POSITION_COLOR);
+        builder.addVertex(matrix, centerX, centerY, 0.0F).setColor(red, green, blue, alpha);
         for (int index = 0; index <= segments; index++) {
             double angle = Math.toRadians(index * 360.0D / segments);
-            builder.vertex(matrix, centerX + (float) (radius * Math.cos(angle)), centerY + (float) (radius * Math.sin(angle)), 0.0F)
-                    .color(red, green, blue, alpha).endVertex();
+            builder.addVertex(matrix, centerX + (float) (radius * Math.cos(angle)), centerY + (float) (radius * Math.sin(angle)), 0.0F)
+                    .setColor(red, green, blue, alpha);
         }
-        tesselator.end();
+        BufferUploader.drawWithShader(builder.buildOrThrow());
         RenderSystem.disableBlend();
     }
 
@@ -259,14 +258,13 @@ public final class PortableWorkstationsWheelOverlay {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShader(GameRenderer::getPositionColorShader);
         Tesselator tesselator = Tesselator.getInstance();
-        BufferBuilder builder = tesselator.getBuilder();
-        builder.begin(VertexFormat.Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
+        BufferBuilder builder = tesselator.begin(VertexFormat.Mode.DEBUG_LINE_STRIP, DefaultVertexFormat.POSITION_COLOR);
         for (int index = 0; index <= segments; index++) {
             double angle = Math.toRadians(index * 360.0D / segments);
-            builder.vertex(matrix, centerX + (float) (radius * Math.cos(angle)), centerY + (float) (radius * Math.sin(angle)), 0.0F)
-                    .color(red, green, blue, alpha).endVertex();
+            builder.addVertex(matrix, centerX + (float) (radius * Math.cos(angle)), centerY + (float) (radius * Math.sin(angle)), 0.0F)
+                    .setColor(red, green, blue, alpha);
         }
-        tesselator.end();
+        BufferUploader.drawWithShader(builder.buildOrThrow());
         RenderSystem.disableBlend();
     }
 

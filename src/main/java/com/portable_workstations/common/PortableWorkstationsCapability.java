@@ -1,23 +1,19 @@
 package com.portable_workstations.common;
 
 import com.portable_workstations.Portable_workstations;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityManager;
-import net.minecraftforge.common.capabilities.CapabilityToken;
-import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
-@Mod.EventBusSubscriber(modid = Portable_workstations.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
+import java.util.function.Supplier;
+
 public final class PortableWorkstationsCapability {
-    public static final Capability<PortableWorkstationsData> DATA = CapabilityManager.get(new CapabilityToken<>() {
-    });
+    public static final DeferredRegister<AttachmentType<?>> ATTACHMENTS =
+            DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, Portable_workstations.MODID);
+    public static final Supplier<AttachmentType<PortableWorkstationsData>> DATA = ATTACHMENTS.register(
+            "workstations",
+            () -> AttachmentType.serializable(PortableWorkstationsData::new).copyOnDeath().build());
 
     private PortableWorkstationsCapability() {
-    }
-
-    @SubscribeEvent
-    public static void registerCapabilities(RegisterCapabilitiesEvent event) {
-        event.register(PortableWorkstationsData.class);
     }
 }

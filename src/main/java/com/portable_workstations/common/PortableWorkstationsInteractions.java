@@ -6,11 +6,11 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 
-@Mod.EventBusSubscriber(modid = Portable_workstations.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+@EventBusSubscriber(modid = Portable_workstations.MODID, bus = EventBusSubscriber.Bus.GAME)
 public final class PortableWorkstationsInteractions {
     private PortableWorkstationsInteractions() {
     }
@@ -33,19 +33,18 @@ public final class PortableWorkstationsInteractions {
         if (!(event.getEntity().level() instanceof ServerLevel level)) {
             return;
         }
-        event.getEntity().getCapability(PortableWorkstationsCapability.DATA).ifPresent(data -> {
-            if (isBookshelf) {
-                if (data.addBookshelf()) {
-                    stack.shrink(1);
-                    PortableWorkstationsNetwork.sync((net.minecraft.server.level.ServerPlayer) event.getEntity());
-                }
-                return;
-            }
-
-            if (type != null && data.unlock(type, stack, level)) {
+        PortableWorkstationsData data = event.getEntity().getData(PortableWorkstationsCapability.DATA);
+        if (isBookshelf) {
+            if (data.addBookshelf()) {
                 stack.shrink(1);
                 PortableWorkstationsNetwork.sync((net.minecraft.server.level.ServerPlayer) event.getEntity());
             }
-        });
+            return;
+        }
+
+        if (type != null && data.unlock(type, stack, level)) {
+            stack.shrink(1);
+            PortableWorkstationsNetwork.sync((net.minecraft.server.level.ServerPlayer) event.getEntity());
+        }
     }
 }

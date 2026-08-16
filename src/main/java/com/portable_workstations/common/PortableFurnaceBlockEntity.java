@@ -39,6 +39,6 @@ public class PortableFurnaceBlockEntity extends FurnaceBlockEntity implements Po
     }
 
     public int getPortableBurnTime(ItemStack stack) {
-        return net.minecraftforge.common.ForgeHooks.getBurnTime(stack, RecipeType.SMELTING);
+        return stack.getBurnTime(RecipeType.SMELTING);
     }
 }

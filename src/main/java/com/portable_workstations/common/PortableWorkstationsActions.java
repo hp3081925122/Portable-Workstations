@@ -15,17 +15,16 @@ public final class PortableWorkstationsActions {
     }
 
     public static void handleAction(ServerPlayer player, WorkstationType type, boolean retrieve) {
-        player.getCapability(PortableWorkstationsCapability.DATA).ifPresent(data -> {
-            if (!data.isUnlocked(type)) {
-                PortableWorkstationsNetwork.sync(player);
-                return;
-            }
-            if (retrieve) {
-                retrieve(player, data, type);
-            } else {
-                open(player, data, type);
-            }
-        });
+        PortableWorkstationsData data = player.getData(PortableWorkstationsCapability.DATA);
+        if (!data.isUnlocked(type)) {
+            PortableWorkstationsNetwork.sync(player);
+            return;
+        }
+        if (retrieve) {
+            retrieve(player, data, type);
+        } else {
+            open(player, data, type);
+        }
     }
 
     private static void retrieve(ServerPlayer player, PortableWorkstationsData data, WorkstationType type) {
